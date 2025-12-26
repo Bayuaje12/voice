@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iboyVoice V1 - Ultimate Mabar</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://files.catbox.moe/3tqe1i.jpeg');
+            background-size: cover; background-position: center; background-attachment: fixed;
+            font-family: 'Rajdhani', sans-serif; color: white; min-height: 100vh; overflow-x: hidden;
+        }
+        .glass { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; }
+        .input-iboy { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 10px; color: #00d2ff; outline: none; text-align: center; width: 100%; }
+        .btn-main { background: linear-gradient(45deg, #3a7bd5, #00d2ff); border-radius: 12px; transition: 0.3s; font-weight: bold; cursor: pointer; border: none; padding: 12px; text-transform: uppercase; width: 100%; }
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 210, 255, 0.4); }
+        .chat-box { height: 200px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px; font-size: 14px; border: 1px solid rgba(255,255,255,0.1); }
+        .msg { margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 2px; }
+        .fx-active { background: #00d2ff !important; color: black; box-shadow: 0 0 10px #00d2ff; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+
+    <div id="setup-ui" class="glass p-8 w-full max-w-sm text-center shadow-2xl hidden">
+        <h1 class="text-3xl font-bold mb-6 text-blue-400 uppercase tracking-tighter">Buat Akun iboy</h1>
+        <div class="w-24 h-24 rounded-full border-4 border-blue-400 mx-auto mb-4 overflow-hidden bg-gray-900 relative">
+            <img id="setup-pfp-img" src="" class="w-full h-full object-cover hidden">
+            <div id="setup-pfp-icon" class="mt-6 text-4xl">👤</div>
+            <label for="pfp-input" class="absolute bottom-0 w-full bg-black/70 text-[8px] py-1 cursor-pointer">UPLOAD</label>
+        </div>
+        <input type="text" id="setup-nick" placeholder="NICKNAME" class="input-iboy mb-4 text-xl">
+        <button onclick="saveAccount()" class="btn-main">MULAI MABAR</button>
+    </div>
+
+    <div id="dash-ui" class="glass p-8 w-full max-w-sm text-center shadow-2xl hidden">
+        <div class="mb-6">
+            <img id="dash-pfp" src="" class="w-20 h-20 rounded-full border-2 border-blue-400 mx-auto mb-2 object-cover">
+            <h2 class="text-2xl font-bold italic">Halo, <span id="dash-nick" class="text-blue-400"></span>!</h2>
+            <button onclick="clearAcc()" class="text-[10px] text-gray-500 uppercase underline">Logout</button>
+        </div>
+        <div class="space-y-3">
+            <button onclick="goHost()" class="btn-main py-4 text-lg">Buat Room (Host)</button>
+            <button onclick="goJoin()" class="btn-main py-4 text-lg bg-gray-800 border-2 border-blue-500/50">Masuk Room (Join)</button>
+        </div>
+    </div>
+
+    <div id="join-form-ui" class="glass p-8 w-full max-w-sm text-center shadow-2xl hidden">
+        <h2 class="text-2xl font-bold text-green-400 mb-6">MASUKKAN ID ROOM</h2>
+        <input type="text" id="input-room-id" placeholder="ID ROOM (6 DIGIT)" class="input-iboy text-2xl uppercase tracking-widest mb-4">
+        <button onclick="doJoin()" class="btn-main bg-green-500 mb-2">GABUNG</button>
+        <button onclick="initApp()" class="text-xs text-gray-500">KEMBALI</button>
+    </div>
+
+    <div id="voice-ui" class="hidden w-full max-w-5xl">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 space-y-4">
+                <div class="glass p-6 text-center">
+                    <p class="text-xs text-gray-400 uppercase font-bold mb-2">ID ROOM KAMU:</p>
+                    <div class="flex items-center justify-center gap-3 mb-4">
+                        <span id="display-room-id" class="text-4xl font-mono font-bold text-blue-400">------</span>
+                        <button onclick="copyID()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-copy"></i></button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="mute-btn" onclick="toggleMute()" class="btn-main text-xs">MIC: ON</button>
+                        <button onclick="location.reload()" class="bg-red-500/20 text-red-400 border border-red-500/50 px-4 rounded-xl text-xs font-bold">EXIT</button>
+                    </div>
+                </div>
+
+                <div class="glass p-4 text-center">
+                    <p class="text-[10px] text-gray-400 mb-2 uppercase">Efek Suara</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setFX('normal')" id="fx-normal" class="py-2 rounded-lg text-[10px] border border-white/10 glass fx-active">NORMAL</button>
+                        <button onclick="setFX('bocil')" id="fx-bocil" class="py-2 rounded-lg text-[10px] border border-white/10 glass">BOCIL</button>
+                        <button onclick="setFX('robot')" id="fx-robot" class="py-2 rounded-xl text-[10px] border border-white/10 glass">ROBOT</button>
+                    </div>
+                </div>
+
+                <div class="glass p-4 text-center">
+                    <p class="text-[10px] text-yellow-400 mb-2 uppercase italic font-bold">Teman Gak Muncul? Panggil Manual:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-nick" placeholder="NICKNAME TEMAN" class="input-iboy text-xs">
+                        <button onclick="manualCall()" class="btn-main !w-20 text-[10px]">PANGGIL</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div id="player-grid" class="grid grid-cols-2 gap-4"></div>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="glass p-4 h-full flex flex-col">
+                    <h3 class="text-sm font-bold mb-2 border-b border-white/10 pb-2"><i class="fa-solid fa-comments mr-2"></i> ROOM CHAT</h3>
+                    <div id="chat-messages" class="chat-box mb-3 flex-1"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="chat-input" placeholder="Ketik pesan..." class="input-iboy !text-left pl-3 text-sm">
+                        <button onclick="sendChat()" class="btn-main !w-12"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <input type="file" id="pfp-input" accept="image/*" hidden>
+
+    <script>
+        let myAcc = { nickname: "", pfp: "" };
+        let myStream, processedStream, peer, gun, roomID, myPeerID;
+        let audioCtx, source, destination, currentFX = null;
+        let peers = new Set();
+
+        // --- ACCOUNT ---
+        function initApp() {
+            const saved = localStorage.getItem('iboy_v15');
+            ['setup-ui', 'dash-ui', 'join-form-ui', 'voice-ui'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            if (saved) {
+                myAcc = JSON.parse(saved);
+                document.getElementById('dash-nick').innerText = myAcc.nickname;
+                document.getElementById('dash-pfp').src = myAcc.pfp || "";
+                document.getElementById('dash-ui').classList.remove('hidden');
+            } else {
+                document.getElementById('setup-ui').classList.remove('hidden');
+            }
+        }
+
+        function saveAccount() {
+            const n = document.getElementById('setup-nick').value.trim();
+            if (!n) return alert("Nickname wajib diisi!");
+            myAcc.nickname = n;
+            localStorage.setItem('iboy_v15', JSON.stringify(myAcc));
+            initApp();
+        }
+
+        function clearAcc() { localStorage.removeItem('iboy_v15'); location.reload(); }
+
+        document.getElementById('pfp-input').onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 100; canvas.height = 100;
+                    canvas.getContext('2d').drawImage(img, 0, 0, 100, 100);
+                    myAcc.pfp = canvas.toDataURL('image/jpeg', 0.7);
+                    document.getElementById('setup-pfp-img').src = myAcc.pfp;
+                    document.getElementById('setup-pfp-img').classList.remove('hidden');
+                    document.getElementById('setup-pfp-icon').classList.add('hidden');
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        // --- ROOM FLOW ---
+        function goHost() {
+            roomID = Math.random().toString(36).substring(2, 8).toUpperCase();
+            startVoice();
+        }
+        function goJoin() {
+            document.getElementById('dash-ui').classList.add('hidden');
+            document.getElementById('join-form-ui').classList.remove('hidden');
+        }
+        function doJoin() {
+            roomID = document.getElementById('input-room-id').value.trim().toUpperCase();
+            if(roomID.length < 4) return alert("ID Room Salah!");
+            startVoice();
+        }
+
+        // --- CORE AUDIO & CONNECTIVITY ---
+        async function startVoice() {
+            try {
+                myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                setupAudioCtx();
+                document.getElementById('dash-ui').classList.add('hidden');
+                document.getElementById('join-form-ui').classList.add('hidden');
+                document.getElementById('voice-ui').classList.remove('hidden');
+                document.getElementById('display-room-id').innerText = roomID;
+                initPeer();
+                initGun();
+            } catch (err) { alert("Mic Error! Gunakan HTTPS."); }
+        }
+
+        function setupAudioCtx() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            source = audioCtx.createMediaStreamSource(myStream);
+            destination = audioCtx.createMediaStreamDestination();
+            source.connect(destination);
+            processedStream = destination.stream;
+        }
+
+        function setFX(type) {
+            source.disconnect();
+            if(currentFX) { if(Array.isArray(currentFX)) currentFX.forEach(n => n.disconnect()); else currentFX.disconnect(); }
+            document.querySelectorAll('[id^="fx-"]').forEach(b => b.classList.remove('fx-active'));
+            document.getElementById('fx-' + type).classList.add('fx-active');
+
+            if(type === 'bocil') {
+                const b = audioCtx.createBiquadFilter(); b.type = "highpass"; b.frequency.value = 1400;
+                source.connect(b); b.connect(destination); currentFX = b;
+            } else if(type === 'robot') {
+                const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                o.type = 'sawtooth'; o.frequency.value = 55; o.start();
+                source.connect(g); o.connect(g.gain); g.connect(destination); currentFX = [o, g];
+            } else { source.connect(destination); currentFX = null; }
+        }
+
+        function initPeer() {
+            myPeerID = `iboy-${roomID}-${myAcc.nickname}-${Math.floor(Math.random()*999)}`;
+            peer = new Peer(myPeerID, { config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] } });
+            peer.on('open', id => addPlayerUI(myAcc.nickname, true, id, null, myAcc.pfp));
+            peer.on('call', call => {
+                call.answer(processedStream);
+                call.on('stream', stream => addPlayerUI(call.peer.split('-')[2], false, call.peer, stream));
+            });
+        }
+
+        // --- GUN.JS (Lobby & Chat) ---
+        function initGun() {
+            gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+            const lobby = gun.get('iboy-room-' + roomID);
+            
+            // Sync Lobby
+            lobby.get(myPeerID).put({ id: myPeerID, name: myAcc.nickname, pfp: myAcc.pfp, time: Date.now() });
+            setInterval(() => lobby.get(myPeerID).put({ time: Date.now() }), 4000);
+
+            lobby.map().on((user, id) => {
+                if(!user || id === myPeerID || Date.now() - user.time > 10000) return;
+                if(!peers.has(id)) {
+                    const call = peer.call(id, processedStream);
+                    call.on('stream', stream => addPlayerUI(user.name, false, id, stream, user.pfp));
+                    peers.add(id);
+                }
+            });
+
+            // Sync Chat
+            const chat = gun.get('iboy-chat-' + roomID);
+            chat.map().on((data, id) => {
+                if(!data) return;
+                const msgUI = document.getElementById('chat-messages');
+                if(!document.getElementById('msg-'+id)) {
+                    const div = document.createElement('div');
+                    div.id = 'msg-' + id;
+                    div.className = "msg";
+                    div.innerHTML = `<span class="text-blue-400 font-bold">${data.who}:</span> <span class="text-white">${data.text}</span>`;
+                    msgUI.appendChild(div);
+                    msgUI.scrollTop = msgUI.scrollHeight;
+                }
+            });
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            if(!input.value.trim()) return;
+            gun.get('iboy-chat-' + roomID).set({ who: myAcc.nickname, text: input.value, time: Date.now() });
+            input.value = "";
+        }
+
+        function manualCall() {
+            const target = document.getElementById('manual-nick').value.trim();
+            if(!target) return alert("Isi Nickname teman!");
+            // Pola ID: iboy-ROOMID-NICK-RANDOM. Karena random susah ditebak, 
+            // kita scan lobby manual untuk mencari nickname yang cocok.
+            gun.get('iboy-room-' + roomID).map().once((user, id) => {
+                if(user && user.name.toLowerCase() === target.toLowerCase()) {
+                    const call = peer.call(id, processedStream);
+                    call.on('stream', stream => addPlayerUI(user.name, false, id, stream, user.pfp));
+                    alert("Memanggil " + target + "...");
+                }
+            });
+        }
+
+        function addPlayerUI(name, isMe, pid, stream, pfp) {
+            if(document.getElementById('card-' + pid)) return;
+            const grid = document.getElementById('player-grid');
+            const card = document.createElement('div');
+            card.id = 'card-' + pid;
+            card.className = "glass p-4 text-center border-t-4 " + (isMe ? "border-blue-400" : "border-green-400 animate-pulse");
+            card.innerHTML = `
+                <div class="w-14 h-14 mx-auto mb-2 rounded-full overflow-hidden bg-gray-900 border border-white/20">
+                    <img src="${pfp || ''}" class="w-full h-full object-cover ${pfp ? '' : 'hidden'}">
+                    <div class="mt-3 text-xl font-bold ${pfp ? 'hidden' : ''}">${name[0].toUpperCase()}</div>
+                </div>
+                <div class="text-sm font-bold truncate uppercase">${name}</div>
+            `;
+            grid.appendChild(card);
+            if(stream && !isMe) {
+                const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream;
+                card.appendChild(a);
+            }
+        }
+
+        function copyID() { navigator.clipboard.writeText(roomID); alert("ID Room Disalin!"); }
+        
+        let muted = false;
+        function toggleMute() {
+            muted = !muted; myStream.getAudioTracks()[0].enabled = !muted;
+            document.getElementById('mute-btn').innerText = muted ? "MIC: OFF" : "MIC: ON";
+            document.getElementById('mute-btn').style.opacity = muted ? "0.5" : "1";
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
